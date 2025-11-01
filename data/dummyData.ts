@@ -202,11 +202,18 @@ export const searchResources = async (query: string): Promise<Resource[]> => {
     }));
   } catch (e) {
     console.error('Failed to fetch from API:', e);
-    return []; // Return empty array instead of falling back to mock data
+    // Fallback to local mock data so the UI still shows results when the deployed
+    // serverless function is missing an API key or fails. This mirrors the offline behaviour.
+    try {
+      return loadAll();
+    } catch (err) {
+      console.error('Failed to load local data as fallback:', err);
+      return [];
+    }
   }
 
-  // If API failed, return empty array
-  return [];
+  // Defensive fallback (should not reach here)
+  return loadAll();
 };
 
 /**

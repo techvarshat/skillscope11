@@ -43,26 +43,71 @@ export default async function handler(req, res) {
       return ['tutorial', 'course', 'learn', 'lesson', 'guide', 'how to', 'curriculum', 'course outline', 'beginner'].some(k => a.includes(k));
     };
 
-    const results = items.map(v => {
+    // Prepare educational results
+    let results = items.map(v => {
       const s = v.snippet || {};
       const stats = v.statistics || {};
       const id = v.id;
       if (!isEducational(s.title || '', s.description || '')) return null;
-      const shortSummary = `${s.description?.split('\n')[0]?.slice(0, 140) || ''}`;
       return {
         id,
         title: s.title || '',
         provider: 'YouTube',
         url: `https://www.youtube.com/watch?v=${id}`,
-        rating: 3, // placeholder (AI rating can be added later)
         views: Number(stats.viewCount || 0),
         category: 'Learning',
         thumbnail: (s.thumbnails && (s.thumbnails.high?.url || s.thumbnails.default?.url)) || '',
-        summary: shortSummary,
+        summary: s.description?.split('\n')[0]?.slice(0, 140) || '',
         reviews: [],
         createdAt: s.publishedAt || new Date().toISOString()
       };
     }).filter(Boolean).sort((a,b) => b.views - a.views).slice(0, max);
+
+    // Call OpenRouter for AI summary/rating
+    const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
+    async function getAIAnalysis(title, description) {
+      if (!OPENROUTER_KEY) return { summary: description?.slice(0, 140) || '', rating: 3 };
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENROUTER_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://skillscope11.vercel.app',
+            'X-Title': 'SkillScope'
+          },
+          body: JSON.stringify({
+            model: 'mistralai/mistral-7b-instruct',
+            messages: [
+              { role: 'system', content: 'You are a helpful expert at analyzing educational content. Give short, focused summaries and quality ratings.' },
+              { role: 'user', content: `Analyze this educational video content and provide:\n1. A concise 2-sentence summary\n2. A quality rating from 1-5 stars based on educational value\nFormat: {summary: "...", rating: X}\n\nTitle: ${title}\nDescription: ${description}` }
+            ]
+          })
+        });
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        // Try to extract JSON
+        const match = content.match(/\{.*\}/s);
+        if (match) {
+          return JSON.parse(match[0]);
+        }
+        // fallback
+        return { summary: content.slice(0, 140), rating: 3 };
+      } catch (e) {
+        console.error('OpenRouter error:', e);
+        return { summary: description?.slice(0, 140) || '', rating: 3 };
+      }
+    }
+
+    // Batch AI calls (limit concurrency)
+    const batchSize = 5;
+    for (let i = 0; i < results.length; i += batchSize) {
+      await Promise.all(results.slice(i, i + batchSize).map(async (item, idx) => {
+        const ai = await getAIAnalysis(item.title, item.summary);
+        item.summary = ai.summary;
+        item.rating = ai.rating;
+      }));
+    }
 
     return res.json(results);
   } catch (e) {
