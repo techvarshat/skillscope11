@@ -8,3 +8,4 @@
 - [x] Change sorting in api/search.js to sort results by rating descending.
 - [x] Modify the response structure in api/search.js to include a "bestPicks" array with the top 3 videos by rating, and "results" with the remaining videos sorted by rating.
 - [x] Test the API to ensure ratings are calculated correctly, no errors, and best picks are displayed properly.
+- [x] Remove OpenRouter and Udemy references from the codebase.

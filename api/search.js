@@ -51,17 +51,26 @@ export default async function handler(req, res) {
       const desc = s.description?.toLowerCase() || '';
       const isEducational = title.includes('tutorial') || title.includes('course') || title.includes('learn') || title.includes('lesson') || title.includes('guide') || title.includes('how to') || desc.includes('learn') || desc.includes('tutorial') || desc.includes('course outline') || desc.includes('curriculum');
       if (!isEducational) continue;
-      const analysis = await getAIAnalysis(s.title || '', s.description || '');
+      const views = Number(stats.viewCount || 0);
+      const likes = Number(stats.likeCount || 0);
+      const comments = Number(stats.commentCount || 0);
+      const subscribers = channelStats[s.channelId] || 0;
+      // Formula: rating = min(10, (likes/views * 100) + (comments/views * 100) + (subscribers/1000000 * 10))
+      const likeRate = views > 0 ? (likes / views) * 100 : 0;
+      const commentRate = views > 0 ? (comments / views) * 100 : 0;
+      const subRate = (subscribers / 1000000) * 10;
+      const rating = Math.min(10, likeRate + commentRate + subRate);
+      const summary = s.description?.slice(0, 200) || '';
       results.push({
         id,
         title: s.title || '',
         provider: 'YouTube',
         url: `https://www.youtube.com/watch?v=${id}`,
-        rating: analysis.rating,
-        views: Number(stats.viewCount || 0),
+        rating,
+        views,
         category: 'Learning',
         thumbnail: (s.thumbnails && (s.thumbnails.high?.url || s.thumbnails.default?.url)) || '',
-        summary: analysis.summary,
+        summary,
         createdAt: s.publishedAt || new Date().toISOString()
       });
     }
