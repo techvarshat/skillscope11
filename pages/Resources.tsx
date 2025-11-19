@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Resource, getResources } from '../data/dummyData';
 import Card from '../components/Card';
 import { StarIcon, EyeIcon, CodeIcon, DesignIcon, DataIcon, LoadingSpinner } from '../components/IconComponents';
+import { dummyData } from '../data/dummyData';
+
+interface Resource {
+  id: string;
+  title: string;
+  provider: string;
+  url: string;
+  rating: number;
+  views: number;
+  category: string;
+  thumbnail: string;
+  summary: string;
+  createdAt: string;
+  unifiedScore: number;
+}
 
 const ResourceCard: React.FC<{ resource: Resource }> = ({ resource }) => (
     <a href={resource.url} target="_blank" rel="noopener noreferrer" className="block w-64 flex-shrink-0">
@@ -13,11 +27,11 @@ const ResourceCard: React.FC<{ resource: Resource }> = ({ resource }) => (
                 <div className="flex items-center justify-between text-xs text-white/70 mt-auto">
                     <div className="flex items-center gap-1">
                         <StarIcon className="text-yellow-400 w-4 h-4" />
-                        <span>{resource.rating}</span>
+                        <span>{Math.round(resource.rating)}</span>
                     </div>
                     <div className="flex items-center gap-1">
                         <EyeIcon className="w-4 h-4"/>
-                        <span>{Number(resource.views).toLocaleString()}</span>
+                        <span>{resource.views}</span>
                     </div>
                 </div>
             </div>
@@ -42,25 +56,33 @@ const CategorySection: React.FC<{ title: string; icon: React.ReactNode; resource
 
 const Resources: React.FC = () => {
     const [resources, setResources] = useState<Resource[]>([]);
+    const [topResources, setTopResources] = useState<Resource[]>([]);
     const [loading, setLoading] = useState(true);
-    // No frontend upload: this page only displays resources provided by backend or local seed.
 
     useEffect(() => {
         const fetchResources = async () => {
             setLoading(true);
             try {
-                const data = await getResources();
-                setResources(data);
+                const response = await fetch('/api/search?q=javascript&max=15');
+                if (!response.ok) throw new Error('Failed to fetch');
+                const data = await response.json();
+                const allResources = data || [];
+                const topRated = allResources.filter(r => r.rating >= 4.5).slice(0, 4);
+                setTopResources(topRated);
+                setResources(allResources);
             } catch (error) {
-                console.error("Failed to fetch resources:", error);
+                console.error('Error fetching resources:', error);
+                // Fallback to dummy data
+                const allResources = dummyData;
+                const topRated = allResources.filter(r => r.rating >= 4.5).slice(0, 4);
+                setTopResources(topRated);
+                setResources(allResources);
             } finally {
                 setLoading(false);
             }
         };
         fetchResources();
     }, []);
-
-    // no API URL setter in UI per project decision
 
     if (loading) {
         return (
@@ -70,21 +92,30 @@ const Resources: React.FC = () => {
         );
     }
 
-    const webDevResources = resources.filter(r => r.category === 'Web Development');
-    const designResources = resources.filter(r => r.category === 'UI/UX Design');
-    const dataSciResources = resources.filter(r => r.category === 'Data Science');
+    const learningResources = resources.filter(r => r.category === 'Learning');
 
-    return (
-    <div className="space-y-8">
-        <div className="flex items-center justify-between">
-            <h1 className="text-3xl md:text-4xl font-bold">Popular Resources</h1>
-        </div>
+  return (
+    <div className="space-y-12">
+        <h1 className="text-3xl md:text-4xl font-bold">Popular Resources</h1>
 
-        <div className="space-y-12">
-            <CategorySection title="Web Development" icon={<CodeIcon />} resources={webDevResources} />
-            <CategorySection title="UI/UX Design" icon={<DesignIcon />} resources={designResources} />
-            <CategorySection title="Data Science" icon={<DataIcon />} resources={dataSciResources} />
-        </div>
+        {/* Top Section */}
+        {topResources.length > 0 && (
+            <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="bg-glass-bg border border-glass-border p-2 rounded-lg">
+                        <StarIcon className="w-6 h-6 text-yellow-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold">Top Rated</h2>
+                </div>
+                <div className="flex space-x-4 overflow-x-auto pb-4 -mx-4 px-4">
+                    {topResources.map(resource => (
+                        <ResourceCard key={resource.id} resource={resource} />
+                    ))}
+                </div>
+            </div>
+        )}
+
+        <CategorySection title="Learning" icon={<CodeIcon />} resources={learningResources} />
     </div>
   );
 };

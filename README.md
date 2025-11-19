@@ -2,21 +2,19 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# SkillScope — Local Development
+# Run and deploy your AI Studio app
 
-This repository is a self-contained front-end for discovering free learning resources. The app is independent and does not require any external AI services.
+This contains everything you need to run your app locally.
 
-## Run locally
+View your app in AI Studio: https://ai.studio/apps/drive/1ZUpdMF3KyRGW2Le0zk-4jewjYoYPxIbp
 
-Prerequisites: Node.js (LTS)
+## Run Locally
+
+**Prerequisites:**  Node.js
+
 
 1. Install dependencies:
    `npm install`
-2. Start the dev server:
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
    `npm run dev`
-
-Open http://localhost:5173 (or the port Vite reports) in your browser.
-
-Notes:
-- Data is stored in the browser's localStorage. On first run the app seeds sample resources. Use the Resources page to add new entries or export/import the dataset.
-- This project intentionally removed references to external AI platforms so it can run fully offline in the browser.
