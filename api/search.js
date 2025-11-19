@@ -47,22 +47,40 @@ export default async function handler(req, res) {
       const s = v.snippet || {};
       const stats = v.statistics || {};
       const id = v.id;
+      const views = Number(stats.viewCount || 0);
+      const likes = Number(stats.likeCount || 0);
+      const comments = Number(stats.commentCount || 0);
+      const publishedAt = s.publishedAt;
       const title = s.title?.toLowerCase() || '';
       const desc = s.description?.toLowerCase() || '';
       const isEducational = title.includes('tutorial') || title.includes('course') || title.includes('learn') || title.includes('lesson') || title.includes('guide') || title.includes('how to') || desc.includes('learn') || desc.includes('tutorial') || desc.includes('course outline') || desc.includes('curriculum');
       if (!isEducational) continue;
-      const analysis = await getAIAnalysis(s.title || '', s.description || '');
+
+      // Custom rating formula using only YouTube API fields: views, likes, comments, publishedAt
+      // Formula: Rating = 3 + (engagement_score * 0.8 + popularity_score * 0.2) * time_decay, clamped 3-5, rounded to 1 decimal
+      const now = Date.now();
+      const pub = publishedAt ? new Date(publishedAt).getTime() : now;
+      const ageDays = Math.max(1, Math.floor((now - pub) / (1000 * 60 * 60 * 24)));
+      const timeDecay = Math.pow(0.95, ageDays / 30); // decay 5% per month
+      const engagementRate = (likes + comments) / Math.max(1, views / 1000);
+      const engagementScore = Math.min(1, engagementRate / 10); // normalize to 0-1
+      const popularityScore = Math.min(1, Math.log10(views + 1) / 8); // normalize log views
+      const combinedScore = engagementScore * 0.8 + popularityScore * 0.2;
+      const rating = Math.round((Math.min(5, Math.max(3, 3 + combinedScore * timeDecay * 2))) * 10) / 10; // round to 1 decimal
+
+      // Summary from description
+      const summary = s.description?.slice(0, 200) || '';
       results.push({
         id,
         title: s.title || '',
         provider: 'YouTube',
         url: `https://www.youtube.com/watch?v=${id}`,
-        rating: analysis.rating,
-        views: Number(stats.viewCount || 0),
+        rating: Math.min(5, Math.max(0, rating)), // clamp 0-5
+        views,
         category: 'Learning',
         thumbnail: (s.thumbnails && (s.thumbnails.high?.url || s.thumbnails.default?.url)) || '',
-        summary: analysis.summary,
-        createdAt: s.publishedAt || new Date().toISOString()
+        summary,
+        createdAt: publishedAt || new Date().toISOString()
       });
     }
     results.sort((a, b) => b.rating - a.rating);
